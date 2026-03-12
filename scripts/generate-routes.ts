@@ -1,9 +1,6 @@
 /**
- * Generates 99 route directories, each with a [slug] dynamic segment
- * producing 3 static pages via generateStaticParams.
- *
- * Total: 99 routes x 3 pages + home + dashboard = 299 pages
- * Total route segments: 100 (99 categories + home)
+ * Generates route directories, each as a simple static page.
+ * 299 unique routes + home + dashboard = 301 total pages, ~300 unique routes.
  *
  * Run: npx tsx scripts/generate-routes.ts
  */
@@ -11,40 +8,28 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-const CATEGORIES = Array.from({ length: 99 }, (_, i) => {
-  const num = String(i + 1).padStart(2, "0");
-  return `section-${num}`;
+const ROUTE_COUNT = 299;
+
+const ROUTES = Array.from({ length: ROUTE_COUNT }, (_, i) => {
+  const num = String(i + 1).padStart(3, "0");
+  return `page-${num}`;
 });
 
-const SLUGS = ["overview", "details", "reference"];
-
-for (const category of CATEGORIES) {
-  const dir = path.join("app", category, "[slug]");
+for (const route of ROUTES) {
+  const dir = path.join("app", route);
   mkdirSync(dir, { recursive: true });
 
   const pageContent = `import Link from "next/link";
-import { LikeButton } from "../../components/like-button";
+import { LikeButton } from "../components/like-button";
 
-const SLUGS = ${JSON.stringify(SLUGS)} as const;
-
-export function generateStaticParams() {
-  return SLUGS.map((slug) => ({ slug }));
-}
-
-export default async function ${toPascalCase(category)}Page({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  const { slug } = await params;
-
+export default function ${toPascalCase(route)}Page() {
   return (
     <div>
-      <h1>${category}: {slug}</h1>
-      <LikeButton label={\`${category}/\${slug}\`} />
+      <h1>${route}</h1>
+      <LikeButton label="${route}" />
       <p>
-        This is the <strong>{slug}</strong> page for <em>${category}</em>,
-        pre-rendered at build time via generateStaticParams.
+        This is a static page for <em>${route}</em>,
+        pre-rendered at build time.
       </p>
       <Link href="/">Back to Home</Link>
     </div>
@@ -55,9 +40,9 @@ export default async function ${toPascalCase(category)}Page({
   writeFileSync(path.join(dir, "page.tsx"), pageContent);
 }
 
-console.log(`Generated ${CATEGORIES.length} route directories`);
-console.log(`Each with ${SLUGS.length} static pages = ${CATEGORIES.length * SLUGS.length} pages`);
-console.log(`+ home + dashboard = ${CATEGORIES.length * SLUGS.length + 2} total`);
+console.log(`Generated ${ROUTES.length} route directories (1 page each)`);
+console.log(`+ home + dashboard = ${ROUTES.length + 2} total pages`);
+console.log(`Total unique routes: ${ROUTES.length + 1} (+ dashboard)`);
 
 function toPascalCase(str: string): string {
   return str

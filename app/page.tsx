@@ -13,17 +13,17 @@ export default function Home() {
         dashboard
       </p>
 
-      <h2>Sections (99 routes, 3 pages each)</h2>
+      <h2>Pages (299 unique routes)</h2>
       <ul>
         {Array.from({ length: 5 }, (_, i) => {
-          const section = `section-${String(i + 1).padStart(2, "0")}`;
+          const page = `page-${String(i + 1).padStart(3, "0")}`;
           return (
-            <li key={section}>
-              <Link href={`/${section}/overview`}>{section}/overview</Link>
+            <li key={page}>
+              <Link href={`/${page}`}>{page}</Link>
             </li>
           );
         })}
-        <li>... and 94 more sections</li>
+        <li>... and 294 more pages</li>
       </ul>
 
       <h2>Dynamic Pages</h2>

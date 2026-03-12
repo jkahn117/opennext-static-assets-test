@@ -1,1 +1,1 @@
-This folder contains the built output assets for the worker "opennext-static-assets-test" generated at 2026-03-12T04:12:53.800Z.
+This folder contains the built output assets for the worker "opennext-static-assets-test" generated at 2026-03-12T04:19:32.236Z.

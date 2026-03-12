@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LikeButton } from "./components/like-button";
+import ClientBadges from "./components/ClientBadges";
 
 // This page is statically generated at build time (SSG by default)
 export default function Home() {
@@ -7,6 +8,7 @@ export default function Home() {
     <div>
       <h1>OpenNext Static Assets Test</h1>
       <LikeButton label="the home page" />
+      <ClientBadges />
       <p>This page is statically generated at build time (SSG).</p>
       <p>
         <strong>~300 static pages:</strong> 99 sections x 3 pages each + home +

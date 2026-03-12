@@ -305,22 +305,81 @@ The more likely constraint at scale is **Worker startup time** (1 second limit),
 
 ---
 
-## Summary Across All Five Stages
+## Stage 6: Webpack vs. Turbopack with 100 Home-Only Client Components
 
-| Metric | Stage 1 (default) | Stage 2 (static cache) | Stage 3 (+ client) | Stage 4 (100 routes) | Stage 5 (300 routes) |
-|---|---|---|---|---|---|
-| Routes | 4 | 4 | 4 | 100 | **300** |
-| Pages | ~300 | ~300 | ~300 | ~300 | ~300 |
-| **Total build** | 35 MB | 42 MB | 44 MB | 52 MB | **66 MB** |
-| **Deployed assets** | 776 KB | 9.5 MB | 9.5 MB | 9.1 MB | 8.0 MB |
-| JS chunks (client) | 724 KB / 14 | 724 KB / 14 | 736 KB / 15 | 736 KB / 15 | 736 KB / 15 |
-| Cached pages in assets | 0 | 8.7 MB / 301 | 8.7 MB / 301 | 8.3 MB / 301 | 7.2 MB / 303 |
-| Server functions | 25 MB | 23 MB | 25 MB | 34 MB | **50 MB** |
-| `handler.mjs` | — | — | 3.0 MB | 6.1 MB | **12 MB** |
-| `.next/` server metadata | — | — | 1.3 MB | 6.1 MB | **16 MB** |
-| Client ref manifests | — | — | 7 / 57 KB | 103 / 892 KB | **303 / 2.6 MB** |
-| Wrangler upload (gzip) | — | — | — | 1.7 MB | **1.8 MB** |
-| Static pages via Worker | All | None (CDN) | None (CDN) | None (CDN) | None (CDN) |
+Added 100 `"use client"` badge components (`badge-001` through `badge-100`) used **only on the home page**, plus 10 shared utility modules (`label-01` through `label-10`). Each badge imports 2 label modules (staggered pairs). A `ClientBadges` server component barrel renders all 100 on the home page only. The 299 `/page-NNN` routes are unchanged.
+
+**Hypothesis**: webpack's `page_client-reference-manifest.js` includes all reachable client modules globally, so every page's manifest should contain the badge components even if that page doesn't use them. Turbopack scopes manifests per-route.
+
+### Stage 6a: Webpack
+
+| Directory | Size | Notes |
+|---|---|---|
+| `server-functions/default/` total | 68 MB | +18 MB vs Stage 5 turbopack |
+| `handler.mjs` | 20 MB | +8 MB vs Stage 5 |
+| `.next/` server metadata | 22 MB | +6 MB vs Stage 5 |
+| Client ref manifests (count/size) | 303 / **13 MB** | **5x larger than Stage 5** |
+| Home manifest | **44 KB** | Contains all 100 badge references |
+| `/page-001` manifest | **44 KB** | Also contains all 100 badge references |
+| CDN `_next/static/` | 2.1 MB | Webpack bundles badge JS into CDN chunks |
+| CDN chunks | 10 | |
+| Worker upload (uncompressed) | **25.5 MB** | +7.1 MB vs Stage 5 turbopack |
+| Worker upload (gzip) | **1.9 MB** | +0.1 MB vs Stage 5 |
+
+**Hypothesis validation**: `grep -o "badge-[0-9]*" page-001/page_client-reference-manifest.js | sort -u | wc -l` returns **100**. Webpack includes all 100 badge component references in every page manifest, including routes that never render those components.
+
+### Stage 6b: Turbopack
+
+| Directory | Size | Notes |
+|---|---|---|
+| `server-functions/default/` total | 47 MB | ~same as Stage 5 turbopack |
+| `handler.mjs` | 12 MB | Same as Stage 5 |
+| `.next/` server metadata | 15 MB | -1 MB vs Stage 5 |
+| Client ref manifests (count/size) | 303 / **2.4 MB** | Close to Stage 5 (2.6 MB) |
+| Home manifest | **76 KB** | Contains all 100 badge references |
+| `/page-001` manifest | **8 KB** | **0 badge references** — only LikeButton |
+| CDN `_next/static/` | 764 KB | Turbopack emits badge JS as separate chunks |
+| CDN chunks | 12 | +2 chunks for badge components |
+| Worker upload (uncompressed) | **17.9 MB** | ~same as Stage 5 (18.4 MB) |
+| Worker upload (gzip) | **1.8 MB** | Same as Stage 5 |
+
+**Hypothesis validation**: `grep -o "badge-[0-9]*" page-001/page_client-reference-manifest.js | sort -u | wc -l` returns **0**. Turbopack correctly scopes each manifest to only the client modules reachable from that route.
+
+### The Core Difference
+
+| Metric | Stage 6a Webpack | Stage 6b Turbopack |
+|---|---|---|
+| Home manifest size | 44 KB | 76 KB |
+| `/page-001` manifest size | **44 KB** | **8 KB** |
+| Badge refs in `/page-001` manifest | **100** | **0** |
+| Total manifest size (303 files) | **13 MB** | **2.4 MB** |
+| Worker upload (uncompressed) | **25.5 MB** | 17.9 MB |
+
+With webpack, every one of the 303 manifests is 44 KB, because webpack populates each manifest with the full global set of reachable client modules. With turbopack, only the home manifest grows (to 76 KB for 100 badge components), while the 302 other manifests stay at ~8 KB — the same as Stage 5.
+
+This is consistent with the real customer observation: a webpack-built app had 134 KB manifests (409 client modules × multiple chunk paths each), while turbopack would scope that to only the modules actually used by each route.
+
+---
+
+## Summary Across All Stages
+
+| Metric | Stage 1 (default) | Stage 2 (static cache) | Stage 3 (+ client) | Stage 4 (100 routes) | Stage 5 (300 routes) | Stage 6a (webpack) | Stage 6b (turbopack) |
+|---|---|---|---|---|---|---|---|
+| Routes | 4 | 4 | 4 | 100 | **300** | 300 | 300 |
+| Pages | ~300 | ~300 | ~300 | ~300 | ~300 | ~300 | ~300 |
+| Client components (home-only) | 0 | 0 | 0 | 0 | 0 | **100** | **100** |
+| **Deployed assets** | 776 KB | 9.5 MB | 9.5 MB | 9.1 MB | 8.0 MB | 8.0 MB | 8.0 MB |
+| JS chunks (CDN) | 724 KB / 14 | 724 KB / 14 | 736 KB / 15 | 736 KB / 15 | 736 KB / 15 | **2.1 MB / 10** | 764 KB / 12 |
+| Server functions | 25 MB | 23 MB | 25 MB | 34 MB | 50 MB | **68 MB** | 47 MB |
+| `handler.mjs` | — | — | 3.0 MB | 6.1 MB | 12 MB | **20 MB** | 12 MB |
+| `.next/` server metadata | — | — | 1.3 MB | 6.1 MB | 16 MB | **22 MB** | 15 MB |
+| Client ref manifests | — | — | 7 / 57 KB | 103 / 892 KB | 303 / 2.6 MB | **303 / 13 MB** | 303 / 2.4 MB |
+| Home manifest size | — | — | ~8.7 KB | ~8.7 KB | ~8.7 KB | **44 KB** | **76 KB** |
+| `/page-001` manifest size | — | — | ~8.7 KB | ~8.7 KB | ~8.7 KB | **44 KB** | **8 KB** |
+| Badge refs in `/page-001` | — | — | — | — | — | **100** | **0** |
+| Worker upload (uncompressed) | — | — | — | 10.9 MB | 18.4 MB | **25.5 MB** | 17.9 MB |
+| Worker upload (gzip) | — | — | — | 1.7 MB | **1.8 MB** | **1.9 MB** | **1.8 MB** |
+| Static pages via Worker | All | None (CDN) | None (CDN) | None (CDN) | None (CDN) | None (CDN) | None (CDN) |
 
 ### Findings
 
@@ -341,3 +400,7 @@ The more likely constraint at scale is **Worker startup time** (1 second limit),
 7. **Gzip compression makes Worker size limits a non-issue for route scaling.** At 300 routes, the gzipped upload is 1.8 MB — well under the 3 MB free limit and far from the 10 MB paid limit. The compression ratio improves with more routes (6.4x at 100 routes, 10.1x at 300 routes) because the repetitive per-route code is ideal for gzip. The more likely constraint at scale is **Worker startup time** (1 second limit) — a 50 MB uncompressed bundle requires significantly more parsing than a 25 MB one.
 
 8. **The deployed payload tradeoff is clear:** 776 KB (default) vs ~8 MB (static assets cache) for edge serving of static pages. For a site with 300 pages, the ~8 MB increase buys you edge-served static content without Worker invocation. Route count doesn't affect this cost — only page count does.
+
+9. **Webpack populates every route's client reference manifest with all globally reachable client modules; turbopack scopes manifests per-route.** Adding 100 client components used only on the home page caused webpack to balloon every one of the 303 manifests from ~8.7 KB to 44 KB — a 5x increase in total manifest size (2.6 MB → 13 MB). Turbopack grew only the home manifest (to 76 KB) while all 302 other manifests remained at ~8 KB. The `/page-001` manifest contained 0 badge references under turbopack vs 100 under webpack. This explains the real-world observation of 134 KB manifests in webpack-built production apps: every route's manifest carries the full set of all client modules in the entire app.
+
+10. **The gzip upload size is nearly immune to manifest bloat.** Despite webpack's manifests being 5x larger on disk (13 MB vs 2.4 MB), the gzip upload only grew from 1.8 MB to 1.9 MB — because the 303 nearly-identical 44 KB manifests compress to almost nothing. However, the **uncompressed** size grew from 18.4 MB (Stage 5) to 25.5 MB (Stage 6a webpack), which counts against the 64 MB uncompressed Worker limit. A real app with 409 client modules and 300+ routes could push manifests well past 100 KB each, totalling 30+ MB in manifests alone.

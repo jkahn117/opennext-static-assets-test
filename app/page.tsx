@@ -9,40 +9,21 @@ export default function Home() {
       <LikeButton label="the home page" />
       <p>This page is statically generated at build time (SSG).</p>
       <p>
-        <strong>~300 static pages:</strong> 196 blog posts + 100 docs pages (5
-        langs x 20 topics) + home + about + _not-found
+        <strong>~300 static pages:</strong> 99 sections x 3 pages each + home +
+        dashboard
       </p>
 
-      <h2>Static Pages</h2>
-      <ul>
-        <li>
-          <Link href="/about">About (Static)</Link>
-        </li>
-      </ul>
-
-      <h2>Blog Posts (196 pages via generateStaticParams)</h2>
+      <h2>Sections (99 routes, 3 pages each)</h2>
       <ul>
         {Array.from({ length: 5 }, (_, i) => {
-          const slug = `post-${String(i + 1).padStart(3, "0")}`;
+          const section = `section-${String(i + 1).padStart(2, "0")}`;
           return (
-            <li key={slug}>
-              <Link href={`/blog/${slug}`}>{slug}</Link>
+            <li key={section}>
+              <Link href={`/${section}/overview`}>{section}/overview</Link>
             </li>
           );
         })}
-        <li>... and 191 more</li>
-      </ul>
-
-      <h2>Docs (100 pages — [lang]/[topic])</h2>
-      <ul>
-        {["en", "fr", "de", "es", "ja"].map((lang) => (
-          <li key={lang}>
-            <Link href={`/docs/${lang}/introduction`}>
-              {lang} — introduction
-            </Link>
-          </li>
-        ))}
-        <li>... 20 topics per language</li>
+        <li>... and 94 more sections</li>
       </ul>
 
       <h2>Dynamic Pages</h2>

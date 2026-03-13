@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --turbo",
     "build:worker": "opennextjs-cloudflare build && opennextjs-cloudflare populateCache local",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare populateCache local && wrangler dev",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare populateCache remote && wrangler deploy",
